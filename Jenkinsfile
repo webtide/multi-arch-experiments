@@ -64,7 +64,7 @@ node {
 
       withEnv(wmvnEnv) {
         timeout(time: 15, unit: 'MINUTES') {
-          sh "mvn.cmd -B -Dmaven.test.failure.ignore=true clean install"
+          bat "mvn -B -Dmaven.test.failure.ignore=true clean install"
           step([$class     : 'JUnitResultArchiver',
                 testResults: '**/target/surefire-reports/TEST-*.xml'])
         }
