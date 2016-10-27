@@ -19,6 +19,7 @@
 package org.eclipse.jetty.quickstart;
 
 import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 
 import java.io.File;
@@ -148,10 +149,20 @@ public class AttributeNormalizerTest
                 result, is(expected));
     }
     
-    private void assertExpand(String line, String expected)
+    private void assertExpandPath(String line, String expected)
     {
         String result = normalizer.expand(line);
+        
+        // Treat output as strings
         assertThat("expand('" + line + "')", result, is(expected));
+    }
+    
+    private void assertExpandURI(String line, URI expected)
+    {
+        String result = normalizer.expand(line);
+        
+        URI resultURI = URI.create(result);
+        assertEquals("expand('" + line + "')", expected, resultURI);
     }
     
     @Test
@@ -193,14 +204,14 @@ public class AttributeNormalizerTest
     public void testExpandJettyBase()
     {
         // Expand jetty.base
-        assertExpand("${jetty.base}", jettyBase);
+        assertExpandPath("${jetty.base}", jettyBase);
     }
     
     @Test
     public void testExpandJettyHome()
     {
         // Expand jetty.home
-        assertExpand("${jetty.home}", jettyHome);
+        assertExpandPath("${jetty.home}", jettyHome);
     }
     
     @Test
@@ -240,9 +251,9 @@ public class AttributeNormalizerTest
     public void testExpandWarDeep()
     {
         // Expand WAR deep path
-        File testWarDeep = new File(new File(war), "deep/ref").getAbsoluteFile();
+        File testWarDeep = new File(new File(war), "deep/ref");
         URI uri = URI.create("jar:" + testWarDeep.toURI().toASCIIString() + "!/other/file");
-        assertExpand("jar:${WAR}/deep/ref!/other/file", uri.toASCIIString());
+        assertExpandURI("jar:${WAR}/deep/ref!/other/file", uri);
     }
 }
 
