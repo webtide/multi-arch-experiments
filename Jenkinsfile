@@ -17,7 +17,7 @@ node {
     stage('Build Linux') {
       withEnv(mvnEnv) {
         timeout(time: 15, unit: 'MINUTES') {
-          sh "mvn -B -Dmaven.test.failures.ignore=true clean install"
+          sh "mvn -B -Dmaven.test.failure.ignore=true clean install"
           step([$class     : 'JUnitResultArchiver',
                 testResults: '**/target/surefire-reports/TEST-*.xml'])
         }
@@ -33,7 +33,7 @@ node {
     stage('Build OSX') {
       withEnv(mvnEnv) {
         timeout(time: 15, unit: 'MINUTES') {
-          sh "mvn -B -Dmaven.test.failures.ignore=true clean install"
+          sh "mvn -B -Dmaven.test.failure.ignore=true clean install"
           step([$class     : 'JUnitResultArchiver',
                 testResults: '**/target/surefire-reports/TEST-*.xml'])
         }
@@ -49,7 +49,7 @@ node {
     stage('Build Windows') {
       withEnv(mvnEnv) {
         timeout(time: 15, unit: 'MINUTES') {
-          sh "mvn -B -Dmaven.test.failures.ignore=true clean install"
+          sh "mvn -B -Dmaven.test.failure.ignore=true clean install"
           step([$class     : 'JUnitResultArchiver',
                 testResults: '**/target/surefire-reports/TEST-*.xml'])
         }
