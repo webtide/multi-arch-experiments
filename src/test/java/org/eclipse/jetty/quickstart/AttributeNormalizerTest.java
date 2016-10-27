@@ -24,149 +24,211 @@ import static org.junit.Assert.assertThat;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.eclipse.jetty.util.resource.Resource;
+import org.junit.After;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+@RunWith(Parameterized.class)
 public class AttributeNormalizerTest
 {
-    private void assertNormalize(AttributeNormalizer normalizer, Object o, String expected)
+    @Parameterized.Parameters(name = "[{index}] {0} - {1}")
+    public static List<Object[]> data()
     {
-        String result = normalizer.normalize(o);
-        assertThat("normalize((" + o.getClass().getSimpleName() + ") " + o.toString() + ")",
-                result, is(expected));
+        List<Object[]> data = new ArrayList<>();
+    
+        String arch = String.format("%s/%s", System.getProperty("os.name"), System.getProperty("os.arch"));
+        
+        String title;
+        Map<String, String> env;
+        
+        // ------
+        title = "Typical Setup";
+        
+        env = new HashMap<>();
+        env.put("jetty.home", EnvUtils.toSystemPath("/opt/jetty-distro"));
+        env.put("jetty.base", EnvUtils.toSystemPath("/opt/jetty-distro/demo.base"));
+        env.put("WAR", EnvUtils.toSystemPath("/opt/jetty-distro/demo.base/webapps/FOO"));
+        
+        data.add(new Object[]{arch, title, env});
+        
+        // ------
+        // This puts the jetty.home inside of the jetty.base
+        title = "Overlap Setup";
+        env = new HashMap<>();
+        env.put("jetty.home", EnvUtils.toSystemPath("/opt/app/dist"));
+        env.put("jetty.base", EnvUtils.toSystemPath("/opt/app"));
+        env.put("WAR", EnvUtils.toSystemPath("/opt/app/webapps/FOO"));
+        
+        data.add(new Object[]{arch, title, env});
+        
+        // ------
+        // This tests a path scenario often seen on various automatic deployments tooling
+        // such as Kubernetes, CircleCI, TravisCI, and Jenkins.
+        title = "Nasty Path Setup";
+        env = new HashMap<>();
+        env.put("jetty.home", EnvUtils.toSystemPath("/opt/app%2Fnasty/dist"));
+        env.put("jetty.base", EnvUtils.toSystemPath("/opt/app%2Fnasty/base"));
+        env.put("WAR", EnvUtils.toSystemPath("/opt/app%2Fnasty/base/webapps/FOO"));
+        
+        data.add(new Object[]{arch, title, env});
+        return data;
     }
     
-    private void assertExpand(AttributeNormalizer normalizer, String line, String expected)
-    {
-        String result = normalizer.expand(line);
-        assertThat("expand('" + line + "')", result, is(expected));
-    }
+    private Map<String, String> oldValues = new HashMap<>();
+    private final String jettyHome;
+    private final String jettyBase;
+    private final String war;
+    private final String arch;
+    private final String title;
+    private final Map<String, String> env;
+    private final AttributeNormalizer normalizer;
     
-    private void assertEnv(Map<String, String> env) throws IOException
+    public AttributeNormalizerTest(String arch, String title, Map<String, String> env) throws IOException
     {
-        Map<String, String> oldValues = new HashMap<>();
+        this.arch = arch;
+        this.title = title;
+        this.env = env;
+        
+        // Remember old values
         env.keySet().stream().forEach((key) ->
         {
             String old = System.getProperty(key);
             oldValues.put(key, old);
         });
         
-        try
-        {
-            String testJettyHome = env.get("jetty.home");
-            String testJettyBase = env.get("jetty.base");
-            String testWar = env.get("WAR");
-            
-            oldValues.entrySet().stream()
-                    .filter((e) -> e.getValue() != null && !e.getKey().equalsIgnoreCase("WAR"))
-                    .forEach((entry) -> System.setProperty(entry.getKey(), entry.getValue()));
-            
-            Resource webresource = Resource.newResource(testWar);
-            AttributeNormalizer normalizer = new AttributeNormalizer(webresource);
-            
-            // Normalize WAR as String path
-            assertNormalize(normalizer, testWar, testWar); // only URL, File, URI are supported
-            
-            // Normalize jetty.base as File path
-            assertNormalize(normalizer, new File(testJettyBase), "${jetty.base}");
-            
-            // Normalize jetty.home as File path
-            assertNormalize(normalizer, new File(testJettyHome), "${jetty.home}");
+        // Grab specific values of interest in general
+        jettyHome = env.get("jetty.home");
+        jettyBase = env.get("jetty.base");
+        war = env.get("WAR");
+        
+        // Set environment (skipping null and WAR)
+        env.entrySet().stream()
+                .filter((e) -> e.getValue() != null && !e.getKey().equalsIgnoreCase("WAR"))
+                .forEach((entry) -> System.setProperty(entry.getKey(), entry.getValue()));
+        
+        // Setup normalizer
+        Resource webresource = Resource.newResource(war);
+        this.normalizer = new AttributeNormalizer(webresource);
+    }
     
-            // Normalize jetty.base as URI path
-            assertNormalize(normalizer, new File(testJettyBase).toURI(), "${jetty.base}");
+    @After
+    public void restoreEnv()
+    {
+        // Restore old values
+        oldValues.entrySet().stream().forEach((entry) ->
+                EnvUtils.restoreSystemProperty(entry.getKey(), entry.getValue())
+        );
+    }
     
-            // Normalize jetty.home as URI path
-            assertNormalize(normalizer, new File(testJettyHome).toURI(), "${jetty.home}");
+    private void assertNormalize(Object o, String expected)
+    {
+        String result = normalizer.normalize(o);
+        assertThat("normalize((" + o.getClass().getSimpleName() + ") " + o.toString() + ")",
+                result, is(expected));
+    }
     
-            // Expand jetty.base
-            assertExpand(normalizer, "${jetty.base}", testJettyBase);
-    
-            // Expand jetty.home
-            assertExpand(normalizer, "${jetty.home}", testJettyHome);
-            
-            // Normalize WAR as URI
-            URI testWarURI = new File(testWar).toURI();
-            assertNormalize(normalizer, testWarURI, "${WAR}");
-            
-            // Normalize WAR deep path as File
-            File testWarDeep = new File(new File(testWar), "deep/ref").getAbsoluteFile();
-            assertNormalize(normalizer, testWarDeep, "${WAR}/deep/ref");
-            
-            // Normalize WAR deep path as String
-            assertNormalize(normalizer, testWarDeep.toString(), testWarDeep.toString());
-            
-            // Normalize WAR deep path as URI
-            assertNormalize(normalizer, testWarDeep.toURI(), "${WAR}/deep/ref");
-            
-            // Expand WAR deep path
-            URI uri = URI.create("jar:" + testWarDeep.toURI().toASCIIString() + "!/other/file");
-            assertExpand(normalizer, "jar:${WAR}!/other/file", uri.toASCIIString());
-        }
-        finally
-        {
-            oldValues.entrySet().stream().forEach((entry) ->
-            {
-                EnvUtils.restoreSystemProperty(entry.getKey(), entry.getValue());
-            });
-        }
+    private void assertExpand(String line, String expected)
+    {
+        String result = normalizer.expand(line);
+        assertThat("expand('" + line + "')", result, is(expected));
     }
     
     @Test
-    public void testNormalizeTypical() throws IOException
+    public void testNormalizeWarAsString()
     {
-        Map<String, String> env = new HashMap<>();
-        env.put("jetty.home", EnvUtils.toSystemPath("/opt/jetty-distro"));
-        env.put("jetty.base", EnvUtils.toSystemPath("/opt/jetty-distro/demo.base"));
-        env.put("WAR", EnvUtils.toSystemPath("/opt/jetty-distro/demo.base/webapps/FOO"));
-        
-        assertEnv(env);
+        // Normalize WAR as String path
+        assertNormalize(war, war); // only URL, File, URI are supported
     }
     
     @Test
-    public void testNormalizeOverlap() throws IOException
+    public void testNormalizeJettyBaseAsFile()
     {
-        Map<String, String> env = new HashMap<>();
-        env.put("jetty.home", EnvUtils.toSystemPath("/opt/app/dist"));
-        env.put("jetty.base", EnvUtils.toSystemPath("/opt/app"));
-        env.put("WAR", EnvUtils.toSystemPath("/opt/app/webapps/FOO"));
-        
-        assertEnv(env);
+        // Normalize jetty.base as File path
+        assertNormalize(new File(jettyBase), "${jetty.base}");
     }
     
-    /**
-     * This tests a path scenario often seen on various automatic deployments tooling
-     * such as Kubernetes, CircleCI, TravisCI, and Jenkins.
-     * @throws IOException
-     */
     @Test
-    public void testNormalizeNastyPaths() throws IOException
+    public void testNormalizeJettyHomeAsFile()
     {
-        Map<String, String> env = new HashMap<>();
-        env.put("jetty.home", EnvUtils.toSystemPath("/opt/app%2Fnasty/dist"));
-        env.put("jetty.base", EnvUtils.toSystemPath("/opt/app%2Fnasty/base"));
-        env.put("WAR", EnvUtils.toSystemPath("/opt/app%2Fnasty/base/webapps/FOO"));
-        
-        assertEnv(env);
+        // Normalize jetty.home as File path
+        assertNormalize(new File(jettyHome), "${jetty.home}");
     }
     
-    /**
-     * This tests scenarios on machines where the path has case differences
-     * such as MS Windows and OSX
-     *
-     * @throws IOException
-     */
     @Test
-    public void testNormalizeCaseDifferences() throws IOException
+    public void testNormalizeJettyBaseAsURI()
     {
-        Map<String, String> env = new HashMap<>();
-        env.put("jetty.home", EnvUtils.toSystemPath("D:\\apps\\jetty-dist"));
-        env.put("jetty.base", EnvUtils.toSystemPath("D:\\apps\\our-base"));
-        env.put("WAR", EnvUtils.toSystemPath("D:\\apps\\our-base\\webapps\\FOO"));
-        
-        assertEnv(env);
+        // Normalize jetty.base as URI path
+        assertNormalize(new File(jettyBase).toURI(), "${jetty.base}");
+    }
+    
+    @Test
+    public void testNormalizeJettyHomeAsURI()
+    {
+        // Normalize jetty.home as URI path
+        assertNormalize(new File(jettyHome).toURI(), "${jetty.home}");
+    }
+    
+    @Test
+    public void testExpandJettyBase()
+    {
+        // Expand jetty.base
+        assertExpand("${jetty.base}", jettyBase);
+    }
+    
+    @Test
+    public void testExpandJettyHome()
+    {
+        // Expand jetty.home
+        assertExpand("${jetty.home}", jettyHome);
+    }
+    
+    @Test
+    public void testNormalizeWarAsURI()
+    {
+        // Normalize WAR as URI
+        URI testWarURI = new File(war).toURI();
+        assertNormalize(testWarURI, "${WAR}");
+    }
+    
+    @Test
+    public void testNormalizeWarDeepAsFile()
+    {
+        // Normalize WAR deep path as File
+        File testWarDeep = new File(new File(war), "deep/ref").getAbsoluteFile();
+        assertNormalize(testWarDeep, "${WAR}/deep/ref");
+    }
+    
+    @Test
+    public void testNormalizeWarDeepAsString()
+    {
+        // Normalize WAR deep path as String
+        File testWarDeep = new File(new File(war), "deep/ref").getAbsoluteFile();
+        assertNormalize(testWarDeep.toString(), testWarDeep.
+                toString());
+    }
+    
+    @Test
+    public void testNormalizeWarDeepAsURI()
+    {
+        // Normalize WAR deep path as URI
+        File testWarDeep = new File(new File(war), "deep/ref").getAbsoluteFile();
+        assertNormalize(testWarDeep.toURI(), "${WAR}/deep/ref");
+    }
+    
+    @Test
+    public void testExpandWarDeep()
+    {
+        // Expand WAR deep path
+        File testWarDeep = new File(new File(war), "deep/ref").getAbsoluteFile();
+        URI uri = URI.create("jar:" + testWarDeep.toURI().toASCIIString() + "!/other/file");
+        assertExpand("jar:${WAR}/deep/ref!/other/file", uri.toASCIIString());
     }
 }
+
