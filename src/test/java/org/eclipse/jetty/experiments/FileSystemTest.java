@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import org.eclipse.jetty.toolchain.test.OS;
 import org.junit.Test;
 
 public class FileSystemTest
@@ -12,9 +13,26 @@ public class FileSystemTest
     @Test
     public void testCaseDifferences() throws IOException
     {
-        File win1 = new File("c:\\Windows");
-        File win2 = new File("C:\\Windows");
-        File win3 = new File("c:\\windows");
+        File win1, win2, win3;
+        
+        if(OS.IS_WINDOWS)
+        {
+            win1 = new File("c:\\Windows");
+            win2 = new File("C:\\Windows");
+            win3 = new File("C:\\WINDOWS");
+        }
+        else if(OS.IS_OSX)
+        {
+            win1 = new File("/Library/Java");
+            win2 = new File("/library/java");
+            win3 = new File("/LIBRARY/JAVA");
+        }
+        else
+        {
+            win1 = new File("/usr/local");
+            win2 = new File("/Usr/Local");
+            win3 = new File("/USR/LOCAL");
+        }
     
         System.out.println("1.getAbsolutePath = " + win1.getAbsolutePath());
         System.out.println("2.getAbsolutePath = " + win2.getAbsolutePath());
