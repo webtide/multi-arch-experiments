@@ -19,7 +19,6 @@
 package org.eclipse.jetty.quickstart;
 
 import static org.hamcrest.Matchers.is;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 
 import java.io.File;
@@ -162,7 +161,8 @@ public class AttributeNormalizerTest
         String result = normalizer.expand(line);
         
         URI resultURI = URI.create(result);
-        assertEquals("expand('" + line + "')", expected, resultURI);
+        assertThat("expand('" + line + "')", resultURI.getScheme(), is(expected.getScheme()));
+        assertThat("expand('" + line + "')", resultURI.getPath(), is(expected.getPath()));
     }
     
     @Test
@@ -190,14 +190,14 @@ public class AttributeNormalizerTest
     public void testNormalizeJettyBaseAsURI()
     {
         // Normalize jetty.base as URI path
-        assertNormalize(new File(jettyBase).toURI(), "${jetty.base}");
+        assertNormalize(new File(jettyBase).toURI(), "${jetty.base.uri}/");
     }
     
     @Test
     public void testNormalizeJettyHomeAsURI()
     {
         // Normalize jetty.home as URI path
-        assertNormalize(new File(jettyHome).toURI(), "${jetty.home}");
+        assertNormalize(new File(jettyHome).toURI(), "${jetty.home.uri}/");
     }
     
     @Test
@@ -219,7 +219,7 @@ public class AttributeNormalizerTest
     {
         // Normalize WAR as URI
         URI testWarURI = new File(war).toURI();
-        assertNormalize(testWarURI, "${WAR}");
+        assertNormalize(testWarURI, "${WAR.uri}/");
     }
     
     @Test
@@ -227,7 +227,7 @@ public class AttributeNormalizerTest
     {
         // Normalize WAR deep path as File
         File testWarDeep = new File(new File(war), "deep/ref").getAbsoluteFile();
-        assertNormalize(testWarDeep, "${WAR}/deep/ref");
+        assertNormalize(testWarDeep, "${WAR.path}/deep/ref");
     }
     
     @Test
@@ -244,7 +244,7 @@ public class AttributeNormalizerTest
     {
         // Normalize WAR deep path as URI
         File testWarDeep = new File(new File(war), "deep/ref").getAbsoluteFile();
-        assertNormalize(testWarDeep.toURI(), "${WAR}/deep/ref");
+        assertNormalize(testWarDeep.toURI(), "${WAR.uri}/deep/ref");
     }
     
     @Test
@@ -253,7 +253,7 @@ public class AttributeNormalizerTest
         // Expand WAR deep path
         File testWarDeep = new File(new File(war), "deep/ref");
         URI uri = URI.create("jar:" + testWarDeep.toURI().toASCIIString() + "!/other/file");
-        assertExpandURI("jar:${WAR}/deep/ref!/other/file", uri);
+        assertExpandURI("jar:${WAR.uri}/deep/ref!/other/file", uri);
     }
 }
 
