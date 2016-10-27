@@ -24,11 +24,15 @@ import static org.junit.Assert.assertThat;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.eclipse.jetty.toolchain.test.FS;
+import org.eclipse.jetty.toolchain.test.MavenTestingUtils;
+import org.eclipse.jetty.toolchain.test.OS;
 import org.eclipse.jetty.util.resource.Resource;
 import org.junit.After;
 import org.junit.Test;
@@ -52,9 +56,9 @@ public class AttributeNormalizerTest
         title = "Typical Setup";
         
         env = new HashMap<>();
-        env.put("jetty.home", EnvUtils.toSystemPath("/opt/jetty-distro"));
-        env.put("jetty.base", EnvUtils.toSystemPath("/opt/jetty-distro/demo.base"));
-        env.put("WAR", EnvUtils.toSystemPath("/opt/jetty-distro/demo.base/webapps/FOO"));
+        env.put("jetty.home", asTargetPath(title,"jetty-distro"));
+        env.put("jetty.base", asTargetPath(title,"jetty-distro/demo.base"));
+        env.put("WAR", asTargetPath(title,"jetty-distro/demo.base/webapps/FOO"));
         
         data.add(new Object[]{arch, title, env});
         
@@ -62,9 +66,9 @@ public class AttributeNormalizerTest
         // This puts the jetty.home inside of the jetty.base
         title = "Overlap Setup";
         env = new HashMap<>();
-        env.put("jetty.home", EnvUtils.toSystemPath("/opt/app/dist"));
-        env.put("jetty.base", EnvUtils.toSystemPath("/opt/app"));
-        env.put("WAR", EnvUtils.toSystemPath("/opt/app/webapps/FOO"));
+        env.put("jetty.home", asTargetPath(title,"app/dist"));
+        env.put("jetty.base", asTargetPath(title,"app"));
+        env.put("WAR", asTargetPath(title,"app/webapps/FOO"));
         
         data.add(new Object[]{arch, title, env});
         
@@ -73,12 +77,22 @@ public class AttributeNormalizerTest
         // such as Kubernetes, CircleCI, TravisCI, and Jenkins.
         title = "Nasty Path Setup";
         env = new HashMap<>();
-        env.put("jetty.home", EnvUtils.toSystemPath("/opt/app%2Fnasty/dist"));
-        env.put("jetty.base", EnvUtils.toSystemPath("/opt/app%2Fnasty/base"));
-        env.put("WAR", EnvUtils.toSystemPath("/opt/app%2Fnasty/base/webapps/FOO"));
+        env.put("jetty.home", asTargetPath(title,"app%2Fnasty/dist"));
+        env.put("jetty.base", asTargetPath(title,"app%2Fnasty/base"));
+        env.put("WAR", asTargetPath(title,"app%2Fnasty/base/webapps/FOO"));
         
         data.add(new Object[]{arch, title, env});
         return data;
+    }
+    
+    private static final String asTargetPath(String title, String subpath)
+    {
+        Path rootPath = MavenTestingUtils.getTargetTestingPath(title);
+        FS.ensureDirExists(rootPath);
+        Path path = rootPath.resolve(OS.separators(subpath));
+        FS.ensureDirExists(path);
+        
+        return path.toString();
     }
     
     private Map<String, String> oldValues = new HashMap<>();
