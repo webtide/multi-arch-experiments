@@ -53,10 +53,21 @@ public class FileSystemTest
         System.out.println("1.toAbsolutePath = " + winp1.toAbsolutePath());
         System.out.println("2.toAbsolutePath = " + winp2.toAbsolutePath());
         System.out.println("3.toAbsolutePath = " + winp3.toAbsolutePath());
-    
-        System.out.println("isSameFile(1,2) = " + Files.isSameFile(winp1, winp2));
-        System.out.println("isSameFile(2,3) = " + Files.isSameFile(winp2, winp3));
-        System.out.println("isSameFile(3,1) = " + Files.isSameFile(winp3, winp1));
+        
+        boolean winp1Exists = Files.exists(winp1);
+        boolean winp2Exists = Files.exists(winp2);
+        boolean winp3Exists = Files.exists(winp3);
+        
+        System.out.println("1) "+winp1+".exists = " + winp1Exists);
+        System.out.println("2) "+winp2+".exists = " + winp2Exists);
+        System.out.println("3) "+winp3+".exists = " + winp3Exists);
+        
+        if(winp1Exists && winp2Exists)
+            System.out.println("isSameFile(1,2) = " + Files.isSameFile(winp1, winp2));
+        if(winp2Exists && winp3Exists)
+            System.out.println("isSameFile(2,3) = " + Files.isSameFile(winp2, winp3));
+        if(winp3Exists && winp1Exists)
+            System.out.println("isSameFile(3,1) = " + Files.isSameFile(winp3, winp1));
     
         System.out.println("1.toRealPath = " + winp1.toRealPath());
         System.out.println("2.toRealPath = " + winp2.toRealPath());
